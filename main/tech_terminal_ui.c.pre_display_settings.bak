@@ -1,0 +1,336 @@
+#include "lvgl.h"
+#include "ui.h"
+#include "tech_settings.h"
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+
+static lv_obj_t *home;
+static lv_obj_t *active_page;
+static lv_obj_t *settings_fields[5];
+static lv_obj_t *settings_keyboard;
+static lv_obj_t *settings_status;
+static const char *module_names[] = {
+    "WEB READER", "NETWORK MONITOR", "PI MONITOR", "GITHUB API", "F1 API"
+};
+static const char *module_info[] = {
+    "Articles and saved pages", "Wi-Fi, signal and connectivity",
+    "Raspberry Pi health and services", "Repositories and activity",
+    "Race schedule and live timing"
+};
+static const uint32_t module_accent[] = {
+    0x42D6C3, 0x55A8FF, 0xB28BFF, 0xF2A65A, 0xFF6685
+};
+
+static void show_home(lv_event_t *event);
+static void open_module(lv_event_t *event);
+static void open_settings(lv_event_t *event);
+static void configure_wifi_screen(void);
+static void settings_field_event(lv_event_t *event);
+static void settings_keyboard_event(lv_event_t *event);
+static void settings_save_event(lv_event_t *event);
+static lv_obj_t *make_label(lv_obj_t *parent, const char *text, int size, uint32_t color);
+
+void tech_terminal_ui_init(void)
+{
+    home = lv_obj_create(NULL);
+    lv_obj_clear_flag(home, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_style_bg_color(home, lv_color_hex(0x0B1118), 0);
+    lv_obj_set_style_bg_opa(home, LV_OPA_COVER, 0);
+    lv_obj_set_style_border_width(home, 0, 0);
+    lv_obj_set_style_pad_all(home, 20, 0);
+
+    lv_obj_t *top = lv_obj_create(home);
+    lv_obj_set_size(top, 440, 42);
+    lv_obj_align(top, LV_ALIGN_TOP_MID, 0, 0);
+    lv_obj_set_style_bg_color(top, lv_color_hex(0x111C27), 0);
+    lv_obj_set_style_border_width(top, 0, 0);
+    lv_obj_set_style_radius(top, 12, 0);
+    lv_obj_clear_flag(top, LV_OBJ_FLAG_SCROLLABLE);
+    make_label(top, "D1  /  TECH TERMINAL", 17, 0xEAF2F8);
+    lv_obj_t *status = make_label(top, "ESP32-S3  •  ONLINE", 12, 0x42D6C3);
+    lv_obj_align(status, LV_ALIGN_RIGHT_MID, -10, 0);
+
+    lv_obj_t *eyebrow = make_label(home, "YOUR SYSTEMS", 12, 0x8295A7);
+    lv_obj_align(eyebrow, LV_ALIGN_TOP_LEFT, 0, 48);
+    lv_obj_t *title = make_label(home, "Command Center", 30, 0xF2F6FA);
+    lv_obj_align(title, LV_ALIGN_TOP_LEFT, 0, 66);
+    lv_obj_t *subtitle = make_label(home, "Choose a module to get started", 14, 0x91A3B4);
+    lv_obj_align(subtitle, LV_ALIGN_TOP_LEFT, 0, 106);
+
+    lv_obj_t *section = lv_obj_create(home);
+    lv_obj_set_size(section, 440, 268);
+    lv_obj_align(section, LV_ALIGN_TOP_MID, 0, 130);
+    lv_obj_set_style_bg_opa(section, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_border_width(section, 0, 0);
+    lv_obj_set_style_pad_all(section, 0, 0);
+    lv_obj_set_style_pad_row(section, 8, 0);
+    lv_obj_set_style_pad_column(section, 8, 0);
+    lv_obj_set_layout(section, LV_LAYOUT_GRID);
+    static lv_coord_t cols[] = {210, 210, LV_GRID_TEMPLATE_LAST};
+    static lv_coord_t rows[] = {82, 82, 82, LV_GRID_TEMPLATE_LAST};
+    lv_obj_set_grid_dsc_array(section, cols, rows);
+
+    for (int i = 0; i < 5; i++) {
+        lv_obj_t *card = lv_btn_create(section);
+        lv_obj_set_grid_cell(card, LV_GRID_ALIGN_STRETCH, i % 2, 1,
+                             LV_GRID_ALIGN_STRETCH, i / 2, 1);
+        lv_obj_set_style_bg_color(card, lv_color_hex(0x14212D), 0);
+        lv_obj_set_style_bg_color(card, lv_color_hex(0x1B2D3B), LV_STATE_PRESSED);
+        lv_obj_set_style_border_color(card, lv_color_hex(0x2A3B49), 0);
+        lv_obj_set_style_border_width(card, 1, 0);
+        lv_obj_set_style_radius(card, 12, 0);
+        lv_obj_set_style_shadow_width(card, 0, 0);
+        lv_obj_set_style_pad_all(card, 10, 0);
+        lv_obj_add_event_cb(card, open_module, LV_EVENT_CLICKED, (void *)(intptr_t)i);
+        lv_obj_t *accent = lv_obj_create(card);
+        lv_obj_set_size(accent, 4, 44);
+        lv_obj_align(accent, LV_ALIGN_LEFT_MID, 0, 0);
+        lv_obj_set_style_bg_color(accent, lv_color_hex(module_accent[i]), 0);
+        lv_obj_set_style_border_width(accent, 0, 0);
+        lv_obj_set_style_radius(accent, 2, 0);
+        lv_obj_clear_flag(accent, LV_OBJ_FLAG_SCROLLABLE);
+        lv_obj_t *name = make_label(card, module_names[i], 13, 0xEDF4F8);
+        lv_obj_align(name, LV_ALIGN_TOP_LEFT, 12, 8);
+        lv_obj_t *desc = make_label(card, module_info[i], 10, 0x91A3B4);
+        lv_obj_set_width(desc, 180);
+        lv_label_set_long_mode(desc, LV_LABEL_LONG_DOT);
+        lv_obj_align(desc, LV_ALIGN_BOTTOM_LEFT, 12, -7);
+    }
+
+    lv_obj_t *footer = lv_obj_create(home);
+    lv_obj_set_size(footer, 440, 38);
+    lv_obj_align(footer, LV_ALIGN_BOTTOM_MID, 0, 0);
+    lv_obj_set_style_bg_opa(footer, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_border_width(footer, 0, 0);
+    lv_obj_clear_flag(footer, LV_OBJ_FLAG_SCROLLABLE);
+    make_label(footer, "MODULES", 12, 0x42D6C3);
+    lv_obj_t *settings = lv_btn_create(footer);
+    lv_obj_set_size(settings, 92, 34);
+    lv_obj_align(settings, LV_ALIGN_RIGHT_MID, -124, 0);
+    lv_obj_set_style_bg_color(settings, lv_color_hex(0x1A2632), 0);
+    lv_obj_set_style_border_width(settings, 0, 0);
+    lv_obj_set_style_radius(settings, 9, 0);
+    lv_obj_add_event_cb(settings, open_settings, LV_EVENT_CLICKED, NULL);
+    lv_obj_t *settings_text = make_label(settings, "SETTINGS", 11, 0xD0DCE5);
+    lv_obj_center(settings_text);
+
+    lv_obj_t *network = lv_btn_create(footer);
+    lv_obj_set_size(network, 112, 34);
+    lv_obj_align(network, LV_ALIGN_RIGHT_MID, 0, 0);
+    lv_obj_set_style_bg_color(network, lv_color_hex(0x17304A), 0);
+    lv_obj_set_style_border_width(network, 0, 0);
+    lv_obj_set_style_radius(network, 9, 0);
+    lv_obj_add_event_cb(network, open_module, LV_EVENT_CLICKED, (void *)(intptr_t)1);
+    lv_obj_t *network_text = make_label(network, "NETWORK", 11, 0x55A8FF);
+    lv_obj_center(network_text);
+    configure_wifi_screen();
+    lv_scr_load(home);
+}
+
+static void configure_wifi_screen(void)
+{
+    lv_obj_set_style_bg_color(ui_screen_wifi, lv_color_hex(0x0B1118), LV_PART_MAIN);
+    lv_label_set_text(ui_wifi_title, "Network Monitor");
+    lv_obj_remove_event_cb(ui_back3, ui_event_back3);
+    lv_obj_set_style_bg_img_src(ui_back3, NULL, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_color(ui_back3, lv_color_hex(0x17304A), LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_border_width(ui_back3, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_radius(ui_back3, 10, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_t *home_label = lv_label_create(ui_back3);
+    lv_label_set_text(home_label, "<  HOME");
+    lv_obj_center(home_label);
+    lv_obj_set_style_text_color(home_label, lv_color_hex(0x55A8FF), 0);
+    lv_obj_set_style_text_font(home_label, &lv_font_montserrat_14, 0);
+    lv_obj_add_event_cb(ui_back3, show_home, LV_EVENT_CLICKED, NULL);
+}
+
+static void open_module(lv_event_t *event)
+{
+    int index = (int)(intptr_t)lv_event_get_user_data(event);
+    if (index == 1) {
+        lv_disp_load_scr(ui_screen_wifi);
+        return;
+    }
+
+    lv_obj_t *page = lv_obj_create(NULL);
+    active_page = page;
+    lv_obj_set_style_bg_color(page, lv_color_hex(0x0B1118), 0);
+    lv_obj_set_style_border_width(page, 0, 0);
+    lv_obj_t *back = lv_btn_create(page);
+    lv_obj_set_size(back, 95, 42);
+    lv_obj_align(back, LV_ALIGN_TOP_LEFT, 18, 18);
+    lv_obj_set_style_bg_color(back, lv_color_hex(0x17304A), 0);
+    lv_obj_add_event_cb(back, show_home, LV_EVENT_CLICKED, NULL);
+    lv_obj_t *back_label = make_label(back, "<  HOME", 13, 0x55A8FF);
+    lv_obj_center(back_label);
+    lv_obj_t *title = make_label(page, module_names[index], 24, 0xF2F6FA);
+    lv_obj_align(title, LV_ALIGN_TOP_LEFT, 22, 88);
+    lv_obj_t *desc = make_label(page, module_info[index], 15, 0x91A3B4);
+    lv_obj_set_width(desc, 420);
+    lv_obj_align(desc, LV_ALIGN_TOP_LEFT, 22, 133);
+    lv_obj_t *panel = lv_obj_create(page);
+    lv_obj_set_size(panel, 436, 160);
+    lv_obj_align(panel, LV_ALIGN_TOP_MID, 0, 190);
+    lv_obj_set_style_bg_color(panel, lv_color_hex(0x14212D), 0);
+    lv_obj_set_style_border_color(panel, lv_color_hex(0x2A3B49), 0);
+    lv_obj_set_style_radius(panel, 14, 0);
+    lv_obj_t *state = make_label(panel, "MODULE READY FOR INTEGRATION", 14, 0x42D6C3);
+    lv_obj_align(state, LV_ALIGN_TOP_LEFT, 12, 12);
+    lv_obj_t *detail = make_label(panel,
+        "Home UI  /  Navigation  /  Settings\nWi-Fi  •  HTTP  •  HTTPS  •  DNS\nESP32-S3  /  480 x 480  /  Touch",
+        13, 0xC1CFD9);
+    lv_obj_set_width(detail, 390);
+    lv_obj_align(detail, LV_ALIGN_TOP_LEFT, 12, 50);
+    lv_scr_load(page);
+}
+
+static void open_settings(lv_event_t *event)
+{
+    (void)event;
+    tech_settings_t settings;
+    if (tech_settings_get(&settings) != ESP_OK) return;
+
+    lv_obj_t *page = lv_obj_create(NULL);
+    active_page = page;
+    lv_obj_set_style_bg_color(page, lv_color_hex(0x0B1118), 0);
+    lv_obj_set_style_border_width(page, 0, 0);
+    lv_obj_t *back = lv_btn_create(page);
+    lv_obj_set_size(back, 90, 40);
+    lv_obj_align(back, LV_ALIGN_TOP_LEFT, 16, 14);
+    lv_obj_set_style_bg_color(back, lv_color_hex(0x17304A), 0);
+    lv_obj_add_event_cb(back, show_home, LV_EVENT_CLICKED, NULL);
+    lv_obj_t *back_label = make_label(back, "< HOME", 13, 0x55A8FF);
+    lv_obj_center(back_label);
+
+    lv_obj_t *title = make_label(page, "SETTINGS", 22, 0xF2F6FA);
+    lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 22);
+    lv_obj_t *save = lv_btn_create(page);
+    lv_obj_set_size(save, 78, 40);
+    lv_obj_align(save, LV_ALIGN_TOP_RIGHT, -16, 14);
+    lv_obj_set_style_bg_color(save, lv_color_hex(0x174336), 0);
+    lv_obj_add_event_cb(save, settings_save_event, LV_EVENT_CLICKED, NULL);
+    lv_obj_t *save_label = make_label(save, "SAVE", 13, 0x42D6C3);
+    lv_obj_center(save_label);
+
+    lv_obj_t *form = lv_obj_create(page);
+    lv_obj_set_size(form, 448, 340);
+    lv_obj_align(form, LV_ALIGN_TOP_MID, 0, 64);
+    lv_obj_set_style_bg_opa(form, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_border_width(form, 0, 0);
+    lv_obj_set_style_pad_all(form, 4, 0);
+    lv_obj_set_style_pad_row(form, 8, 0);
+
+    char values[5][128] = {{0}};
+    strlcpy(values[0], settings.browser_home, sizeof(values[0]));
+    strlcpy(values[1], settings.github_owner, sizeof(values[1]));
+    if (settings.github_repo_count) strlcpy(values[2], settings.github_repos[0], sizeof(values[2]));
+    if (settings.pi_count) strlcpy(values[3], settings.pi_devices[0].base_url, sizeof(values[3]));
+    strlcpy(values[4], settings.information_city, sizeof(values[4]));
+    const char *names[5] = {"Browser home URL", "GitHub owner", "GitHub repository",
+                            "Pi status URL", "Information location"};
+
+    for (int i = 0; i < 5; i++) {
+        lv_obj_t *label = make_label(form, names[i], 12, 0x91A3B4);
+        lv_obj_set_pos(label, 4, i * 62);
+        settings_fields[i] = lv_textarea_create(form);
+        lv_obj_set_size(settings_fields[i], 424, 38);
+        lv_obj_set_pos(settings_fields[i], 4, i * 62 + 18);
+        lv_textarea_set_one_line(settings_fields[i], true);
+        lv_textarea_set_max_length(settings_fields[i], 127);
+        lv_textarea_set_text(settings_fields[i], values[i]);
+        lv_obj_set_style_bg_color(settings_fields[i], lv_color_hex(0x14212D), 0);
+        lv_obj_set_style_text_color(settings_fields[i], lv_color_hex(0xEDF4F8), 0);
+        lv_obj_add_event_cb(settings_fields[i], settings_field_event, LV_EVENT_CLICKED, NULL);
+    }
+
+    settings_status = make_label(page, "Saved locally on this device", 11, 0x8295A7);
+    lv_obj_align(settings_status, LV_ALIGN_BOTTOM_LEFT, 22, -8);
+    settings_keyboard = lv_keyboard_create(page);
+    lv_obj_set_size(settings_keyboard, 480, 190);
+    lv_obj_align(settings_keyboard, LV_ALIGN_BOTTOM_MID, 0, 0);
+    lv_obj_add_flag(settings_keyboard, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_event_cb(settings_keyboard, settings_keyboard_event, LV_EVENT_READY, NULL);
+    lv_obj_add_event_cb(settings_keyboard, settings_keyboard_event, LV_EVENT_CANCEL, NULL);
+    lv_scr_load(page);
+}
+
+static void show_home(lv_event_t *event)
+{
+    (void)event;
+    lv_scr_load(home);
+    if (active_page != NULL) {
+        lv_obj_del_async(active_page);
+        active_page = NULL;
+    }
+}
+
+static lv_obj_t *make_label(lv_obj_t *parent, const char *text, int size, uint32_t color)
+{
+    lv_obj_t *label = lv_label_create(parent);
+    lv_label_set_text(label, text);
+    lv_obj_set_style_text_font(label, size >= 20 ? &lv_font_montserrat_24 :
+                                size >= 14 ? &lv_font_montserrat_14 :
+                                &lv_font_montserrat_12, 0);
+    lv_obj_set_style_text_color(label, lv_color_hex(color), 0);
+    return label;
+}
+static void settings_field_event(lv_event_t *event)
+{
+    if (settings_keyboard == NULL) return;
+    lv_obj_t *field = lv_event_get_target(event);
+    lv_keyboard_set_textarea(settings_keyboard, field);
+    lv_obj_clear_flag(settings_keyboard, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_move_foreground(settings_keyboard);
+}
+
+static void settings_keyboard_event(lv_event_t *event)
+{
+    (void)event;
+    lv_keyboard_set_textarea(settings_keyboard, NULL);
+    lv_obj_add_flag(settings_keyboard, LV_OBJ_FLAG_HIDDEN);
+}
+
+static void settings_save_event(lv_event_t *event)
+{
+    if (lv_event_get_code(event) != LV_EVENT_CLICKED) return;
+    tech_settings_t settings;
+    if (tech_settings_get(&settings) != ESP_OK) return;
+
+    strlcpy(settings.browser_home, lv_textarea_get_text(settings_fields[0]),
+            sizeof(settings.browser_home));
+    strlcpy(settings.github_owner, lv_textarea_get_text(settings_fields[1]),
+            sizeof(settings.github_owner));
+    memset(settings.github_repos, 0, sizeof(settings.github_repos));
+    const char *repo = lv_textarea_get_text(settings_fields[2]);
+    if (repo[0]) {
+        strlcpy(settings.github_repos[0], repo, sizeof(settings.github_repos[0]));
+        settings.github_repo_count = 1;
+    } else {
+        settings.github_repo_count = 0;
+    }
+
+    memset(settings.pi_devices, 0, sizeof(settings.pi_devices));
+    const char *pi_url = lv_textarea_get_text(settings_fields[3]);
+    if (pi_url[0]) {
+        strlcpy(settings.pi_devices[0].name, "Pi #1",
+                sizeof(settings.pi_devices[0].name));
+        strlcpy(settings.pi_devices[0].base_url, pi_url,
+                sizeof(settings.pi_devices[0].base_url));
+        settings.pi_count = 1;
+    } else {
+        settings.pi_count = 0;
+    }
+    strlcpy(settings.information_city, lv_textarea_get_text(settings_fields[4]),
+            sizeof(settings.information_city));
+
+    esp_err_t err = tech_settings_set(&settings);
+    lv_label_set_text(settings_status, err == ESP_OK ?
+                      "Saved locally on this device" : "Save failed; check storage");
+    lv_obj_set_style_text_color(settings_status,
+        err == ESP_OK ? lv_color_hex(0x42D6C3) : lv_color_hex(0xFF6685), 0);
+    if (settings_keyboard) {
+        lv_keyboard_set_textarea(settings_keyboard, NULL);
+        lv_obj_add_flag(settings_keyboard, LV_OBJ_FLAG_HIDDEN);
+    }
+}

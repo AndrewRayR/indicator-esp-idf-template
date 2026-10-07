@@ -7,7 +7,7 @@
 extern "C" {
 #endif
 
-esp_err_t indicator_model_init(void);
+int indicator_model_init(void);
 
 #ifdef __cplusplus
 }

@@ -187,7 +187,7 @@ void bsp_sx126x_init(void)
 
 void SX126xIoIrqInit( DioIrqHandler dioIrq )
 {
-    g_dioIrq = dioIrq;
+    g_dioIrq = (uint32_t *)dioIrq;
 
     gpio_config_t io_conf = {};
     io_conf.intr_type = GPIO_INTR_NEGEDGE; //falling edge

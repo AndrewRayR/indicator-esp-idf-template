@@ -1,0 +1,99 @@
+#include "tech_settings.h"
+#include <string.h>
+#include "nvs.h"
+
+#define TECH_SETTINGS_NAMESPACE "tech_terminal"
+#define TECH_SETTINGS_KEY "prefs"
+#define TECH_SETTINGS_SCHEMA 1
+
+static bool settings_valid(const tech_settings_t *settings);
+static nvs_handle_t settings_handle;
+static tech_settings_t current_settings;
+static bool settings_ready;
+
+static void settings_defaults(tech_settings_t *settings)
+{
+    memset(settings, 0, sizeof(*settings));
+    settings->schema_version = TECH_SETTINGS_SCHEMA;
+    settings->brightness = 80;
+    settings->dark_theme = true;
+    settings->time_format_24h = true;
+    settings->refresh_seconds = 300;
+    strlcpy(settings->browser_home, "https://example.com/", sizeof(settings->browser_home));
+}
+
+esp_err_t tech_settings_init(void)
+{
+    esp_err_t err = nvs_open(TECH_SETTINGS_NAMESPACE, NVS_READWRITE, &settings_handle);
+    if (err != ESP_OK) return err;
+
+    size_t stored_size = sizeof(current_settings);
+    err = nvs_get_blob(settings_handle, TECH_SETTINGS_KEY, &current_settings, &stored_size);
+    if (err == ESP_ERR_NVS_NOT_FOUND || err == ESP_ERR_NVS_INVALID_LENGTH ||
+        err == ESP_OK && (stored_size != sizeof(current_settings) ||
+        current_settings.schema_version != TECH_SETTINGS_SCHEMA ||
+        !settings_valid(&current_settings))) { 
+        settings_defaults(&current_settings);
+        err = nvs_set_blob(settings_handle, TECH_SETTINGS_KEY,
+                           &current_settings, sizeof(current_settings));
+        if (err == ESP_OK) err = nvs_commit(settings_handle);
+    }
+    if (err == ESP_OK) settings_ready = true;
+    else nvs_close(settings_handle);
+    return err;
+}
+esp_err_t tech_settings_get(tech_settings_t *out)
+{
+    if (!settings_ready || out == NULL) return ESP_ERR_INVALID_STATE;
+    *out = current_settings;
+    return ESP_OK;
+}
+
+static bool field_terminated(const char *field, size_t capacity)
+{
+    return memchr(field, '\0', capacity) != NULL;
+}
+
+static bool settings_valid(const tech_settings_t *settings)
+{
+    if (settings == NULL || settings->pi_count > TECH_MAX_PI_DEVICES ||
+        settings->bookmark_count > TECH_MAX_BOOKMARKS ||
+        settings->github_repo_count > TECH_MAX_GITHUB_REPOS ||
+        settings->brightness > 100 ||
+        settings->refresh_seconds < 5 || settings->refresh_seconds > 86400) {
+        return false;
+    }
+    if (!field_terminated(settings->browser_home, sizeof(settings->browser_home)) ||
+        !field_terminated(settings->github_owner, sizeof(settings->github_owner)) ||
+        !field_terminated(settings->f1_driver, sizeof(settings->f1_driver)) ||
+        !field_terminated(settings->f1_team, sizeof(settings->f1_team)) ||
+        !field_terminated(settings->information_city, sizeof(settings->information_city))) {
+        return false;
+    }
+    for (int i = 0; i < TECH_MAX_BOOKMARKS; i++) {
+        if (!field_terminated(settings->bookmarks[i], sizeof(settings->bookmarks[i]))) return false;
+    }
+    for (int i = 0; i < TECH_MAX_GITHUB_REPOS; i++) {
+        if (!field_terminated(settings->github_repos[i], sizeof(settings->github_repos[i]))) return false;
+    }
+    for (int i = 0; i < TECH_MAX_PI_DEVICES; i++) {
+        if (!field_terminated(settings->pi_devices[i].name, sizeof(settings->pi_devices[i].name)) ||
+            !field_terminated(settings->pi_devices[i].base_url, sizeof(settings->pi_devices[i].base_url)) ||
+            !field_terminated(settings->pi_devices[i].token, sizeof(settings->pi_devices[i].token))) return false;
+    }
+    return true;
+}
+
+esp_err_t tech_settings_set(const tech_settings_t *settings)
+{
+    if (!settings_ready) return ESP_ERR_INVALID_STATE;
+    if (!settings_valid(settings)) return ESP_ERR_INVALID_ARG;
+
+    tech_settings_t next = *settings;
+    next.schema_version = TECH_SETTINGS_SCHEMA;
+    esp_err_t err = nvs_set_blob(settings_handle, TECH_SETTINGS_KEY,
+                                 &next, sizeof(next));
+    if (err == ESP_OK) err = nvs_commit(settings_handle);
+    if (err == ESP_OK) current_settings = next;
+    return err;
+}

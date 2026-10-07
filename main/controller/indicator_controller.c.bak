@@ -1,5 +1,4 @@
 #include "indicator_controller.h"
-#include "esp_event.h"
 #include "lvgl.h"
 #include "ui.h"
 

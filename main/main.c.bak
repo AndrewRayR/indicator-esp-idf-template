@@ -8,8 +8,7 @@
 
 #include "indicator_model.h"
 #include "indicator_view.h"
-#include "indicator_controller.h"
-#include "tech_terminal_ui.h"
+//#include "indicator_controller.h"
 
 static const char *TAG = "app_main";
 
@@ -51,10 +50,9 @@ void app_main(void)
 
     lv_port_sem_take();
     indicator_view_init();
-    tech_terminal_ui_init();
     lv_port_sem_give();
 
-    ESP_ERROR_CHECK(indicator_model_init());
+    indicator_model_init();
     indicator_controller_init();
 
     static char buffer[128];    /* Make sure buffer is enough for `sprintf` */

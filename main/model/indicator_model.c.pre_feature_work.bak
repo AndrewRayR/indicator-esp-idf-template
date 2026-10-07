@@ -6,19 +6,14 @@
 #include "indicator_btn.h"
 #include "indicator_city.h"
 #include "indicator_sensor.h"
-#include "../tech/tech_settings.h"
 
-esp_err_t indicator_model_init(void)
+int indicator_model_init(void)
 {
-    esp_err_t err = indicator_storage_init();
-    if (err != ESP_OK) return err;
-    err = tech_settings_init();
-    if (err != ESP_OK) return err;
+    indicator_storage_init();
     indicator_sensor_init();
     indicator_wifi_init();
     indicator_time_init();
     indicator_city_init();
-    indicator_display_init();
+    indicator_display_init();  // lcd bl on
     indicator_btn_init();
-    return ESP_OK;
 }

@@ -1,0 +1,41 @@
+#ifndef TECH_SETTINGS_H
+#define TECH_SETTINGS_H
+
+#include <stdbool.h>
+#include <stdint.h>
+#include "esp_err.h"
+
+#define TECH_MAX_PI_DEVICES 4
+#define TECH_MAX_BOOKMARKS 4
+#define TECH_MAX_GITHUB_REPOS 4
+
+typedef struct {
+    char name[32];
+    char base_url[128];
+    char token[64];
+} tech_pi_device_t;
+
+typedef struct {
+    uint16_t schema_version;
+    uint8_t brightness;
+    bool dark_theme;
+    bool time_format_24h;
+    uint16_t refresh_seconds;
+    char browser_home[128];
+    char bookmarks[TECH_MAX_BOOKMARKS][128];
+    uint8_t bookmark_count;
+    char github_owner[64];
+    char github_repos[TECH_MAX_GITHUB_REPOS][64];
+    uint8_t github_repo_count;
+    char f1_driver[24];
+    char f1_team[32];
+    char information_city[48];
+    uint8_t pi_count;
+    tech_pi_device_t pi_devices[TECH_MAX_PI_DEVICES];
+} tech_settings_t;
+
+esp_err_t tech_settings_init(void);
+esp_err_t tech_settings_get(tech_settings_t *out);
+esp_err_t tech_settings_set(const tech_settings_t *settings);
+
+#endif

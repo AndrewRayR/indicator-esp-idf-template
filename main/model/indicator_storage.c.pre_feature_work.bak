@@ -3,7 +3,7 @@
 
 #define STORAGE_NAMESPACE "indicator"
 
-esp_err_t indicator_storage_init(void)
+int indicator_storage_init(void)
 {
     //ESP_ERROR_CHECK(nvs_flash_erase());
     esp_err_t ret = nvs_flash_init();
@@ -11,7 +11,6 @@ esp_err_t indicator_storage_init(void)
       ESP_ERROR_CHECK(nvs_flash_erase());
       ret = nvs_flash_init();
     }
-    return ret;
 }
 
 esp_err_t indicator_storage_write(char *p_key, void *p_data, size_t len)

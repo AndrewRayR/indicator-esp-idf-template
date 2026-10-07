@@ -4,10 +4,8 @@
 #include "ui.h"
 #include "ui_helpers.h"
 #include "indicator_util.h"
-#include "lv_port.h"
 
 #include "esp_wifi.h"
-#include <math.h>
 #include <time.h>
 
 
@@ -802,9 +800,12 @@ static void __view_event_handler(void* handler_args, esp_event_base_t base, int3
     lv_port_sem_take();
     switch (id)
     {
-        case VIEW_EVENT_SCREEN_START:
-            /* The Tech Terminal dashboard is now the entry screen. */
-            break;
+        case VIEW_EVENT_SCREEN_START: {
+            uint8_t screen = *( uint8_t *)event_data;
+            if( screen == SCREEN_WIFI_CONFIG) {
+                lv_disp_load_scr( ui_screen_wifi);
+            }
+        }
         case VIEW_EVENT_TIME: {
             ESP_LOGI(TAG, "event: VIEW_EVENT_TIME");
             bool time_format_24 = true;
@@ -939,7 +940,7 @@ static void __view_event_handler(void* handler_args, esp_event_base_t base, int3
             ESP_LOGI(TAG, "event: VIEW_EVENT_WIFI_ST");
             struct view_data_wifi_st *p_st = ( struct view_data_wifi_st *)event_data;
             
-            const lv_img_dsc_t *p_src = NULL;
+            uint8_t *p_src =NULL;
             //todo is_network
             if ( p_st->is_connected ) {
                 switch (wifi_rssi_level_get( p_st->rssi )) {
@@ -960,13 +961,13 @@ static void __view_event_handler(void* handler_args, esp_event_base_t base, int3
                 p_src = &ui_img_wifi_disconet_png;
             }
 
-            lv_img_set_src(ui_wifi_st_1 , p_src);
-            lv_img_set_src(ui_wifi_st_2 , p_src);
-            lv_img_set_src(ui_wifi_st_3 , p_src);
-            lv_img_set_src(ui_wifi_st_4 , p_src);
-            lv_img_set_src(ui_wifi_st_5 , p_src);
-            lv_img_set_src(ui_wifi_st_6 , p_src);
-            lv_img_set_src(ui_wifi_st_7 , p_src);
+            lv_img_set_src(ui_wifi_st_1 , (void *)p_src);
+            lv_img_set_src(ui_wifi_st_2 , (void *)p_src);
+            lv_img_set_src(ui_wifi_st_3 , (void *)p_src);
+            lv_img_set_src(ui_wifi_st_4 , (void *)p_src);
+            lv_img_set_src(ui_wifi_st_5 , (void *)p_src);
+            lv_img_set_src(ui_wifi_st_6 , (void *)p_src);
+            lv_img_set_src(ui_wifi_st_7 , (void *)p_src);
             break;
         }
         case VIEW_EVENT_WIFI_LIST: {
@@ -985,7 +986,7 @@ static void __view_event_handler(void* handler_args, esp_event_base_t base, int3
             bool have_password = true;
         
             if( p_list->is_connect) {
-                create_wifi_item(ui_wifi_list, p_list->connect.ssid, p_list->connect.auth_mode, p_list->connect.rssi, true);
+                create_wifi_item(ui_wifi_list,  p_list->connect.ssid, p_list->connect.auth_mode, p_list->connect.ssid, true);
             }
             for( int i = 0; i < p_list->cnt; i++ ) {
                 ESP_LOGI(TAG, "ssid:%s, rssi:%d, auth mode:%d", p_list->aps[i].ssid, p_list->aps[i].rssi, p_list->aps[i].auth_mode);

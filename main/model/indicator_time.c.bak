@@ -1,7 +1,4 @@
 #include "indicator_time.h"
-#include "indicator_storage.h"
-#include "esp_event.h"
-#include "esp_timer.h"
 #include "esp_sntp.h"
 #include "freertos/semphr.h"
 #include<stdlib.h>
@@ -79,7 +76,7 @@ static void __time_sync_enable(void)
 
 static void __time_sync_stop(void)
 {
-    esp_sntp_stop();
+    sntp_stop();
 }
 
 static void __time_zone_set(struct view_data_time_cfg *p_cfg)
@@ -146,7 +143,7 @@ static void __time_view_update_callback(void* arg)
     }
 }
 
-static void __time_view_update_init(void)
+static __time_view_update_init(void)
 {
     const esp_timer_create_args_t timer_args = {
             .callback = &__time_view_update_callback,

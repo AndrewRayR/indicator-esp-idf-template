@@ -1,10 +1,6 @@
 #include "indicator_btn.h"
 #include "indicator_display.h"
 #include "bsp_btn.h"
-#include "esp_event.h"
-#include "esp_timer.h"
-#include "esp_system.h"
-#include "nvs_flash.h"
 
 static uint32_t hold_cnt=0;
 static bool sleep_flag=false;
@@ -14,7 +10,6 @@ static esp_timer_handle_t   factory_reset_timer_handle;
 
 static void __factory_reset_callback(void* arg)
 {
-    (void) arg;
     ESP_ERROR_CHECK(nvs_flash_erase());
     fflush(stdout);
     esp_restart();

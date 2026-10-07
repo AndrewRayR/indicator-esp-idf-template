@@ -9,7 +9,7 @@ extern "C" {
 #endif
 
 
-esp_err_t indicator_storage_init(void);
+int indicator_storage_init(void);
 
 esp_err_t indicator_storage_write(char *p_key, void *p_data, size_t len);
 

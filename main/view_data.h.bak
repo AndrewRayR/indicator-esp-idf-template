@@ -1,7 +1,6 @@
 #ifndef VIEW_DATA_H
 #define VIEW_DATA_H
 
-#include <time.h>
 #include "config.h"
 
 #ifdef __cplusplus
